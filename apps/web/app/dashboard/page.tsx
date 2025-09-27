@@ -38,6 +38,7 @@ export default function DashboardPage() {
     if (error) {
       console.error('Error fetching projects:', error)
     } else {
+      console.log('Fetched projects:', data)
       setProjects(data || [])
     }
   }
@@ -209,9 +210,13 @@ export default function DashboardPage() {
                     Created {new Date(project.created_at).toLocaleDateString()}
                   </div>
                   <div className="flex space-x-2">
-                    <button className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700">
+                    <Link
+                      href={`/dashboard/projects/${project.id}`}
+                      className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700"
+                      onClick={() => console.log('Navigating to project:', project.id)}
+                    >
                       View
-                    </button>
+                    </Link>
                     <button className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-300">
                       Settings
                     </button>
