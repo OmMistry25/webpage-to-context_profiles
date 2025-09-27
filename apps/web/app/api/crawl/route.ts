@@ -112,6 +112,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Create a job for the worker to process
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .insert([
+        {
+          type: 'crawl',
+          status: 'pending',
+          payload: { crawl_id: crawl.id }
+        }
+      ])
+      .select()
+      .single()
+
+    if (jobError) {
+      console.error('Error creating job:', jobError)
+      // Don't fail the crawl creation if job creation fails
+      console.warn('Crawl created but job creation failed - worker may not process this crawl')
+    } else {
+      console.log(`✅ Created job ${job.id} for crawl ${crawl.id}`)
+    }
+
     // Return the crawl ID and details
     return NextResponse.json({
       success: true,

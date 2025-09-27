@@ -405,9 +405,12 @@ export default function ProjectDetailPage() {
                             {crawl.started_at ? new Date(crawl.started_at).toLocaleDateString() : 'Not started'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button className="text-indigo-600 hover:text-indigo-900 mr-3">
+                            <Link
+                              href={`/dashboard/crawls/${crawl.id}`}
+                              className="text-indigo-600 hover:text-indigo-900 mr-3"
+                            >
                               View
-                            </button>
+                            </Link>
                             <button className="text-red-600 hover:text-red-900">
                               Stop
                             </button>
