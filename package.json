@@ -6,7 +6,12 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "type-check": "turbo run type-check"
+    "type-check": "turbo run type-check",
+    "migrate": "node scripts/apply-migrations.js",
+    "test:db": "node scripts/test-db-connection.js",
+    "test:rls": "node scripts/test-rls.js",
+    "test:auth": "node scripts/test-auth.js",
+    "test:magic-link": "node scripts/test-magic-link.js"
   },
   "devDependencies": {
     "turbo": "^1.10.12",
