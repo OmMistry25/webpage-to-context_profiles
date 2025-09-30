@@ -1,0 +1,22 @@
+{
+  "name": "@web-to-context/splitter",
+  "version": "0.1.0",
+  "description": "Token-aware text splitter for creating chunks from crawled content",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "tsx src/test.ts",
+    "process": "tsx src/process-crawl.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^17.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

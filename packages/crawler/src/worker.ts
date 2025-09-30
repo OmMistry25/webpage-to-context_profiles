@@ -6,6 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { JSDOM } from 'jsdom'
 import TurndownService from 'turndown'
+import puppeteer from 'puppeteer'
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url)
@@ -131,41 +132,100 @@ class MultiDepthCrawler {
 
   private async crawlPage(item: CrawlQueueItem): Promise<CrawledPage | null> {
     try {
-      const response = await fetch(item.url, {
-        headers: {
-          'User-Agent': 'Web-to-Context-Profile-Crawler/1.0',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive',
-        },
-        timeout: 10000 // 10 second timeout
-      })
+      console.log(`🌐 Crawling: ${item.url}`)
+      
+      // Try Puppeteer first for JavaScript-rendered pages
+      let html: string
+      let title: string | null = null
+      let links: string[] = []
+      let contentType = 'text/html'
+      let statusCode = 200
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      try {
+        const browser = await puppeteer.launch({ 
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        })
+        const page = await browser.newPage()
+        
+        // Set user agent
+        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+        
+        // Navigate to the page
+        await page.goto(item.url, { 
+          waitUntil: 'networkidle2', // Wait until network is idle
+          timeout: 30000 
+        })
+        
+        // Wait a bit more for dynamic content to load
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        // Get the rendered HTML
+        html = await page.content()
+        
+        // Extract title
+        title = await page.title()
+        
+        // Extract links using Puppeteer
+        links = await page.evaluate(() => {
+          const linkElements = document.querySelectorAll('a[href]')
+          return Array.from(linkElements).map(link => link.getAttribute('href')).filter(Boolean) as string[]
+        })
+        
+        await browser.close()
+        
+        console.log(`✅ Puppeteer found ${links.length} links on ${item.url}`)
+        
+      } catch (puppeteerError) {
+        console.log(`⚠️  Puppeteer failed, falling back to fetch: ${puppeteerError.message}`)
+        
+        // Fallback to regular fetch
+        const response = await fetch(item.url, {
+          headers: {
+            'User-Agent': 'Web-to-Context-Profile-Crawler/1.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+          },
+          timeout: 10000 // 10 second timeout
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        html = await response.text()
+        contentType = response.headers.get('content-type') || 'text/html'
+        statusCode = response.status
+
+        // Only process HTML content
+        if (!contentType.includes('text/html')) {
+          console.log(`⏭️  Skipping non-HTML content: ${item.url} (${contentType})`)
+          return null
+        }
+
+        const dom = new JSDOM(html)
+        const document = dom.window.document
+
+        // Extract title
+        title = document.querySelector('title')?.textContent?.trim() || null
+
+        // Extract and filter links
+        links = this.extractAndFilterLinks(document, item.url)
       }
-
-      const html = await response.text()
-      const contentType = response.headers.get('content-type') || 'text/html'
-
-      // Only process HTML content
-      if (!contentType.includes('text/html')) {
-        console.log(`⏭️  Skipping non-HTML content: ${item.url} (${contentType})`)
-        return null
-      }
-
-      const dom = new JSDOM(html)
-      const document = dom.window.document
-
-      // Extract title
-      const title = document.querySelector('title')?.textContent?.trim() || null
 
       // Extract content (convert HTML to Markdown)
+      const dom = new JSDOM(html)
+      const document = dom.window.document
       const content = this.extractContent(document)
 
-      // Extract and filter links
-      const links = this.extractAndFilterLinks(document, item.url)
+      // Process links if we got them from Puppeteer
+      if (links.length > 0 && !links[0].startsWith('http')) {
+        // Links from Puppeteer might be relative, so we need to process them
+        const processedLinks = this.processLinksFromPuppeteer(links, item.url)
+        links = processedLinks
+      }
 
       // Upload content to Supabase Storage
       const htmlFileName = `crawls/${this.crawl.id}/pages/${Date.now()}.html`
@@ -209,7 +269,7 @@ class MultiDepthCrawler {
         title,
         content,
         links,
-        statusCode: response.status,
+        statusCode,
         contentType,
         depth: item.depth,
         htmlPath,
@@ -249,6 +309,7 @@ class MultiDepthCrawler {
     const base = new URL(baseUrl)
     
     const linkElements = document.querySelectorAll('a[href]')
+    console.log(`🔍 Found ${linkElements.length} links on ${baseUrl}`)
     
     for (const link of linkElements) {
       const href = link.getAttribute('href')
@@ -267,12 +328,76 @@ class MultiDepthCrawler {
           url = new URL(href, baseUrl)
         }
 
+        console.log(`🔗 Processing link: ${href} -> ${url.toString()}`)
+
         // Apply scope filtering
         if (this.isUrlInScope(url, base)) {
           // Normalize URL (remove fragments, trailing slashes, etc.)
           const normalizedUrl = this.normalizeUrl(url.toString())
           if (normalizedUrl && !this.crawledUrls.has(normalizedUrl)) {
             links.push(normalizedUrl)
+            console.log(`✅ Added to crawl queue: ${normalizedUrl}`)
+          } else if (this.crawledUrls.has(normalizedUrl)) {
+            console.log(`⏭️  Already crawled: ${normalizedUrl}`)
+          }
+        } else {
+          console.log(`❌ Out of scope: ${url.toString()} (scope: ${this.crawl.scope})`)
+        }
+      } catch (e) {
+        console.log(`❌ Invalid URL: ${href}`)
+        continue
+      }
+    }
+    
+    console.log(`📊 Total links found: ${links.length}`)
+    return [...new Set(links)] // Remove duplicates
+  }
+
+  private isUrlInScope(url: URL, base: URL): boolean {
+    const result = (() => {
+      switch (this.crawl.scope) {
+        case 'domain':
+          return url.hostname === base.hostname
+        case 'subdomain':
+          return url.hostname === base.hostname || url.hostname.endsWith('.' + base.hostname)
+        case 'path':
+          const sameOrigin = url.origin === base.origin
+          const pathMatch = url.pathname.startsWith(base.pathname)
+          console.log(`🔍 Scope check (path): origin=${sameOrigin} (${url.origin} === ${base.origin}), path=${pathMatch} (${url.pathname} startsWith ${base.pathname})`)
+          return sameOrigin && pathMatch
+        default:
+          return true
+      }
+    })()
+    
+    console.log(`🎯 URL ${url.toString()} in scope (${this.crawl.scope}): ${result}`)
+    return result
+  }
+
+  private processLinksFromPuppeteer(links: string[], baseUrl: string): string[] {
+    const processedLinks: string[] = []
+    const base = new URL(baseUrl)
+    
+    for (const href of links) {
+      try {
+        let url: URL
+        
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          url = new URL(href)
+        } else if (href.startsWith('//')) {
+          url = new URL(base.protocol + href)
+        } else if (href.startsWith('/')) {
+          url = new URL(href, base.origin)
+        } else {
+          url = new URL(href, baseUrl)
+        }
+
+        // Apply scope filtering
+        if (this.isUrlInScope(url, base)) {
+          // Normalize URL (remove fragments, trailing slashes, etc.)
+          const normalizedUrl = this.normalizeUrl(url.toString())
+          if (normalizedUrl && !this.crawledUrls.has(normalizedUrl)) {
+            processedLinks.push(normalizedUrl)
           }
         }
       } catch (e) {
@@ -281,20 +406,7 @@ class MultiDepthCrawler {
       }
     }
     
-    return [...new Set(links)] // Remove duplicates
-  }
-
-  private isUrlInScope(url: URL, base: URL): boolean {
-    switch (this.crawl.scope) {
-      case 'domain':
-        return url.hostname === base.hostname
-      case 'subdomain':
-        return url.hostname === base.hostname || url.hostname.endsWith('.' + base.hostname)
-      case 'path':
-        return url.origin === base.origin && url.pathname.startsWith(base.pathname)
-      default:
-        return true
-    }
+    return [...new Set(processedLinks)] // Remove duplicates
   }
 
   private normalizeUrl(url: string): string | null {
