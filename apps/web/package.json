@@ -11,6 +11,8 @@
   "dependencies": {
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.38.0",
+    "@web-to-context/search": "^0.1.0",
+    "d3": "^7.9.0",
     "d3-hierarchy": "^3.1.2",
     "d3-scale": "^4.0.2",
     "d3-selection": "^3.0.0",

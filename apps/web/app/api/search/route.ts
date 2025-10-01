@@ -1,6 +1,6 @@
 import { createClientWithAuth } from '../../../lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { searchService } from '../../../../packages/search/src/index'
+import { HybridSearchService } from '../../../lib/search'
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Perform hybrid search
-    const results = await searchService.hybridSearch(query, {
+    const searchService = new HybridSearchService(semanticWeight, keywordWeight)
+    const results = await searchService.searchWithFallback(query, {
       limit,
       semanticWeight,
       keywordWeight,
@@ -80,7 +81,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Perform hybrid search
-    const results = await searchService.hybridSearch(query, {
+    const searchService = new HybridSearchService(semanticWeight, keywordWeight)
+    const results = await searchService.searchWithFallback(query, {
       limit,
       semanticWeight,
       keywordWeight,
