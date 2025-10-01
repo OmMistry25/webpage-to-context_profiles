@@ -228,6 +228,12 @@ export default function KnowledgeBasePage() {
             </div>
             <div className="flex space-x-4">
               <Link
+                href="/dashboard/chat"
+                className="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                AI Chat
+              </Link>
+              <Link
                 href="/dashboard"
                 className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >

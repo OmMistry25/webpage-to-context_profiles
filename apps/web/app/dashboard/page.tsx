@@ -144,6 +144,12 @@ export default function DashboardPage() {
             </div>
             <div className="flex space-x-4">
               <Link
+                href="/dashboard/chat"
+                className="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                AI Chat
+              </Link>
+              <Link
                 href="/dashboard/knowledge-base"
                 className="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
