@@ -60,6 +60,9 @@ export default function ProjectDetailPage() {
   const [crawlScope, setCrawlScope] = useState('domain')
   const [crawlMaxDepth, setCrawlMaxDepth] = useState(3)
   const [crawlMaxPages, setCrawlMaxPages] = useState(100)
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [crawlExportLoading, setCrawlExportLoading] = useState<string | null>(null)
   const router = useRouter()
   const params = useParams()
   const projectId = params.id as string
@@ -236,6 +239,100 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const handleExportBundle = async () => {
+    if (!projectId) return
+
+    setExportLoading(true)
+    setExportError(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        throw new Error('Not authenticated')
+      }
+
+      const response = await fetch('/api/bundle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          projectId
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create bundle')
+      }
+
+      const data = await response.json()
+      
+      // Download the bundle
+      const link = document.createElement('a')
+      link.href = data.downloadUrl
+      link.download = `profile-v1-${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      console.log('Bundle exported successfully:', data)
+    } catch (error) {
+      console.error('Error exporting bundle:', error)
+      setExportError(error instanceof Error ? error.message : 'Failed to export bundle')
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
+  const handleExportCrawlBundle = async (crawlId: string) => {
+    setCrawlExportLoading(crawlId)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        throw new Error('Not authenticated')
+      }
+
+      const response = await fetch('/api/bundle/crawl', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          crawlId
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create crawl bundle')
+      }
+
+      const data = await response.json()
+      
+      // Download the bundle
+      const link = document.createElement('a')
+      link.href = data.downloadUrl
+      const crawlDomain = new URL(data.crawlUrl).hostname.replace(/[^a-z0-9]/gi, '_')
+      link.download = `crawl-${crawlDomain}-${Date.now()}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      console.log('Crawl bundle exported successfully:', data)
+    } catch (error) {
+      console.error('Error exporting crawl bundle:', error)
+      alert(`Failed to export crawl bundle: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setCrawlExportLoading(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -277,6 +374,13 @@ export default function ProjectDetailPage() {
               )}
             </div>
             <div className="flex space-x-4">
+              <button
+                onClick={handleExportBundle}
+                disabled={exportLoading || !crawlStats || crawlStats.total_pages === 0}
+                className="bg-green-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exportLoading ? 'Exporting...' : '📦 Export Bundle'}
+              </button>
               <Link
                 href="/dashboard"
                 className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -314,6 +418,23 @@ export default function ProjectDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* Export Error Display */}
+          {exportError && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Export Error</h3>
+                  <div className="mt-2 text-sm text-red-700">{exportError}</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Statistics */}
           {crawlStats && (
@@ -405,15 +526,26 @@ export default function ProjectDetailPage() {
                             {crawl.started_at ? new Date(crawl.started_at).toLocaleDateString() : 'Not started'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <Link
-                              href={`/dashboard/crawls/${crawl.id}`}
-                              className="text-indigo-600 hover:text-indigo-900 mr-3"
-                            >
-                              View
-                            </Link>
-                            <button className="text-red-600 hover:text-red-900">
-                              Stop
-                            </button>
+                            <div className="flex space-x-2">
+                              <Link
+                                href={`/dashboard/crawls/${crawl.id}`}
+                                className="text-indigo-600 hover:text-indigo-900"
+                              >
+                                View
+                              </Link>
+                              {crawl.status === 'completed' && crawl.pages_crawled > 0 && (
+                                <button
+                                  onClick={() => handleExportCrawlBundle(crawl.id)}
+                                  disabled={crawlExportLoading === crawl.id}
+                                  className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {crawlExportLoading === crawl.id ? 'Exporting...' : '📦 Export'}
+                                </button>
+                              )}
+                              <button className="text-red-600 hover:text-red-900">
+                                Stop
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

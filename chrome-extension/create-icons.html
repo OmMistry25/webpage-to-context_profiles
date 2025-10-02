@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Extension Icons</title>
+</head>
+<body>
+    <canvas id="canvas" width="128" height="128" style="border: 1px solid #ccc;"></canvas>
+    <br>
+    <button onclick="downloadIcon(16)">Download 16x16</button>
+    <button onclick="downloadIcon(32)">Download 32x32</button>
+    <button onclick="downloadIcon(48)">Download 48x48</button>
+    <button onclick="downloadIcon(128)">Download 128x128</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function drawIcon(size) {
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Background circle
+            ctx.fillStyle = '#4F46E5'; // Indigo
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2 - 2, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Web icon (simplified)
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = Math.max(1, size/32);
+            ctx.lineCap = 'round';
+            
+            // Draw web-like structure
+            const centerX = size/2;
+            const centerY = size/2;
+            const radius = size/3;
+            
+            // Horizontal lines
+            ctx.beginPath();
+            ctx.moveTo(centerX - radius, centerY);
+            ctx.lineTo(centerX + radius, centerY);
+            ctx.stroke();
+            
+            // Vertical lines
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - radius);
+            ctx.lineTo(centerX, centerY + radius);
+            ctx.stroke();
+            
+            // Diagonal lines
+            ctx.beginPath();
+            ctx.moveTo(centerX - radius/1.4, centerY - radius/1.4);
+            ctx.lineTo(centerX + radius/1.4, centerY + radius/1.4);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX + radius/1.4, centerY - radius/1.4);
+            ctx.lineTo(centerX - radius/1.4, centerY + radius/1.4);
+            ctx.stroke();
+            
+            // Center dot
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, Math.max(2, size/16), 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function downloadIcon(size) {
+            drawIcon(size);
+            
+            const link = document.createElement('a');
+            link.download = `icon${size}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        // Draw initial icon
+        drawIcon(128);
+    </script>
+</body>
+</html>

@@ -513,6 +513,137 @@ Please:
   }
 
   /**
+   * Create a bundle for a specific crawl
+   */
+  async createCrawlBundle(crawlId: string): Promise<{ bundleId: string; downloadUrl: string }> {
+    try {
+      console.log(`📦 Creating bundle for crawl: ${crawlId}`)
+
+      // Step 1: Fetch crawl data with project info
+      const { data: crawl, error: crawlError } = await supabase
+        .from('crawls')
+        .select(`
+          *,
+          projects!inner(id, name, description)
+        `)
+        .eq('id', crawlId)
+        .single()
+
+      if (crawlError || !crawl) {
+        throw new Error(`Crawl not found: ${crawlId}`)
+      }
+
+      // Step 2: Fetch all pages for this crawl
+      const { data: pages, error: pagesError } = await supabase
+        .from('pages')
+        .select('*')
+        .eq('crawl_id', crawlId)
+
+      if (pagesError) {
+        throw new Error(`Failed to fetch pages: ${pagesError.message}`)
+      }
+
+      // Step 3: Fetch all chunks for this crawl
+      const { data: chunks, error: chunksError } = await supabase
+        .from('chunks')
+        .select(`
+          *,
+          pages!inner(url, title, crawl_id)
+        `)
+        .eq('pages.crawl_id', crawlId)
+
+      if (chunksError) {
+        throw new Error(`Failed to fetch chunks: ${chunksError.message}`)
+      }
+
+      console.log(`📊 Crawl bundle data: ${pages?.length || 0} pages, ${chunks?.length || 0} chunks`)
+
+      // Step 4: Create manifest for this crawl
+      const manifest: BundleManifest = {
+        version: '1.0.0',
+        created_at: new Date().toISOString(),
+        project_id: crawl.projects.id,
+        project_name: crawl.projects.name,
+        total_pages: pages?.length || 0,
+        total_chunks: chunks?.length || 0,
+        total_crawls: 1,
+        scope: 'crawl',
+        description: `Bundle for crawl of ${crawl.root_url} (${crawl.scope} scope, depth ${crawl.max_depth}, max ${crawl.max_pages} pages)`
+      }
+
+      // Step 5: Prepare pages data
+      const pagesData: PageData[] = (pages || []).map(page => ({
+        id: page.id,
+        url: page.url,
+        title: page.title || 'Untitled',
+        status_code: page.status_code,
+        content_type: page.content_type,
+        depth: page.depth,
+        crawled_at: page.crawled_at,
+        crawl_id: page.crawl_id,
+        project_id: crawl.projects.id,
+        project_name: crawl.projects.name,
+        links: page.links || [],
+        raw_html_path: page.raw_html_path,
+        markdown_path: page.markdown_path
+      }))
+
+      // Step 6: Prepare chunks data
+      const chunksData: ChunkData[] = (chunks || []).map(chunk => ({
+        id: chunk.id,
+        page_id: chunk.page_id,
+        content: chunk.content,
+        token_count: chunk.token_count,
+        chunk_index: chunk.chunk_index,
+        page_url: chunk.pages?.url || '',
+        page_title: chunk.pages?.title || 'Untitled',
+        crawl_id: chunk.pages?.crawl_id || '',
+        project_id: crawl.projects.id,
+        created_at: chunk.created_at
+      }))
+
+      // Step 7: Create graph data for this crawl
+      const graphData = this.createGraphData(pagesData, [crawl])
+
+      // Step 8: Create bundle ID and filename
+      const bundleId = `crawl-bundle-${crawlId}-${Date.now()}`
+      const crawlDomain = new URL(crawl.root_url).hostname.replace(/[^a-z0-9]/gi, '_')
+      const filename = `crawl-${crawlDomain}-${Date.now()}.zip`
+
+      // Step 9: Create zip file
+      const zipBuffer = await this.createZipFile(manifest, pagesData, chunksData, graphData)
+
+      // Step 10: Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('bundles')
+        .upload(filename, zipBuffer, {
+          contentType: 'application/zip',
+          upsert: false
+        })
+
+      if (uploadError) {
+        throw new Error(`Failed to upload bundle: ${uploadError.message}`)
+      }
+
+      // Step 11: Get public URL
+      const { data: urlData } = supabase.storage
+        .from('bundles')
+        .getPublicUrl(filename)
+
+      console.log(`✅ Crawl bundle created successfully: ${filename}`)
+
+      return {
+        bundleId,
+        downloadUrl: urlData.publicUrl
+      }
+
+    } catch (error) {
+      console.error('❌ Crawl bundle creation failed:', error)
+      throw error
+    }
+  }
+
+  /**
    * Get latest bundle for a project
    */
   async getLatestBundle(projectId: string): Promise<{ bundleId: string; downloadUrl: string } | null> {
@@ -551,6 +682,3 @@ Please:
     }
   }
 }
-
-// Export default instance
-export const bundlerService = new BundlerService()
