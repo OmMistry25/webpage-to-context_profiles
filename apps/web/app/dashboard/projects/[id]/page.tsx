@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '../../../../lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '../../../../lib/hooks/useAuth'
 
 interface User {
   id: string
@@ -48,7 +49,7 @@ interface CrawlStats {
 }
 
 export default function ProjectDetailPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const { user, loading: authLoading } = useAuth()
   const [project, setProject] = useState<Project | null>(null)
   const [crawls, setCrawls] = useState<Crawl[]>([])
   const [crawlStats, setCrawlStats] = useState<CrawlStats | null>(null)
@@ -71,37 +72,16 @@ export default function ProjectDetailPage() {
   console.log('ProjectDetailPage rendered with projectId:', projectId)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
+    if (authLoading) return
 
-      // Fetch project and related data
-      await fetchProjectData()
-      setLoading(false)
+    if (!user) {
+      router.push('/auth/login')
+      return
     }
 
-    getUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
-          router.push('/auth/login')
-        } else {
-          setUser(session.user)
-          if (session.user) {
-            fetchProjectData()
-          }
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [router, supabase.auth, projectId])
+    // Fetch project and related data
+    fetchProjectData().then(() => setLoading(false))
+  }, [user, authLoading, router, projectId])
 
   // Separate useEffect to fetch project data when user or projectId changes
   useEffect(() => {
@@ -333,7 +313,7 @@ export default function ProjectDetailPage() {
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

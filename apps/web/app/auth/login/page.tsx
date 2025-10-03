@@ -35,7 +35,7 @@ export default function LoginPage() {
           }, 1000)
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
@@ -43,6 +43,22 @@ export default function LoginPage() {
         if (error) {
           setMessage(`Error: ${error.message}`)
         } else {
+          setMessage('Login successful! Redirecting...')
+          console.log('Login successful, session:', data.session)
+          console.log('User:', data.user)
+          
+          // Check if session is properly set
+          const { data: sessionCheck } = await supabase.auth.getSession()
+          console.log('Session check after login:', sessionCheck)
+          
+          // Check cookies
+          console.log('Document cookies after login:', document.cookie)
+          
+          // Check localStorage
+          console.log('LocalStorage after login:', localStorage)
+          
+          // Use router.push for proper Next.js navigation
+          console.log('Redirecting to dashboard using router.push...')
           router.push('/dashboard')
         }
       }

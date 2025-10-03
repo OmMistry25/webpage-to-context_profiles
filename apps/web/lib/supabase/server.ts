@@ -64,3 +64,38 @@ export function createClientWithAuth(request: NextRequest) {
     }
   )
 }
+
+// Alternative function that uses the token directly with Supabase client
+export async function getUserFromToken(token: string) {
+  console.log('Validating token:', token.substring(0, 20) + '...')
+  
+  // Create a Supabase client with the service role key for token validation
+  const { createClient } = await import('@supabase/supabase-js')
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    }
+  )
+  
+  // Try to get the user
+  const { data: { user }, error } = await supabase.auth.getUser()
+  
+  if (error) {
+    console.log('Token validation error:', error.message)
+    throw new Error(`Invalid token: ${error.message}`)
+  }
+  
+  if (!user) {
+    console.log('No user found for token')
+    throw new Error('No user found for token')
+  }
+  
+  console.log('Token validation successful, user:', user.email)
+  return { user }
+}

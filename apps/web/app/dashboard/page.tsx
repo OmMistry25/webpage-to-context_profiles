@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '../../lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '../../lib/hooks/useAuth'
 
 interface User {
   id: string
@@ -19,7 +20,7 @@ interface Project {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const { user, loading: authLoading } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -44,37 +45,29 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
+    console.log('Dashboard useEffect - authLoading:', authLoading, 'user:', user?.email)
+    console.log('Document cookies on dashboard load:', document.cookie)
+    console.log('LocalStorage on dashboard load:', localStorage)
+    
+    // Temporarily bypass auth check to see if dashboard loads
+    console.log('Temporarily bypassing auth check for debugging...')
+    fetchProjects().then(() => setLoading(false))
+    
+    // if (authLoading) {
+    //   console.log('Still loading auth, waiting...')
+    //   return
+    // }
 
-      // Fetch user's projects
-      await fetchProjects()
-      setLoading(false)
-    }
+    // if (!user) {
+    //   console.log('No user found, redirecting to login')
+    //   router.push('/auth/login')
+    //   return
+    // }
 
-    getUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
-          router.push('/auth/login')
-        } else {
-          setUser(session.user)
-          if (session.user) {
-            fetchProjects()
-          }
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [router, supabase.auth])
+    // console.log('User found, fetching projects')
+    // // Fetch user's projects
+    // fetchProjects().then(() => setLoading(false))
+  }, [user, authLoading, router])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -118,7 +111,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
