@@ -128,11 +128,12 @@ function displaySearchResults(results: any[], format: string) {
   } else {
     // Simple list format
     results.forEach((result, index) => {
-      const typeIcon = {
+      const typeIcons: Record<string, string> = {
         project: '📁',
         crawl: '🕷️',
         chunk: '📄'
-      }[result.type] || '📄'
+      }
+      const typeIcon = typeIcons[result.type] || '📄'
       
       console.log(`${index + 1}. ${typeIcon} ${result.name || result.url || result.pageTitle || result.id}`)
     })
