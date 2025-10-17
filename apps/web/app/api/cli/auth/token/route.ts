@@ -45,21 +45,71 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // In a real implementation, you would:
-    // 1. Verify the authorization code
-    // 2. Check if it's expired
-    // 3. Exchange it for an access token
-    
-    // For now, we'll create a simple access token
-    // In production, use proper JWT tokens or OAuth 2.0 flow
-    
-    const accessToken = Buffer.from(`${body.clientId}:${Date.now()}:${Math.random()}`).toString('base64')
+    // Verify the authorization code
+    let authCodeData
+    try {
+      const decoded = Buffer.from(body.code, 'base64').toString('utf-8')
+      const parts = decoded.split(':')
+      if (parts.length !== 4) {
+        throw new Error('Invalid authorization code format')
+      }
+      authCodeData = {
+        userId: parts[0],
+        clientId: parts[1],
+        timestamp: parseInt(parts[2]),
+        random: parts[3]
+      }
+    } catch (error) {
+      console.error('Invalid authorization code:', error)
+      return NextResponse.json(
+        { error: 'Invalid authorization code' },
+        { status: 400 }
+      )
+    }
+
+    // Check if authorization code is expired (5 minutes)
+    const now = Date.now()
+    const codeAge = now - authCodeData.timestamp
+    if (codeAge > 5 * 60 * 1000) { // 5 minutes
+      return NextResponse.json(
+        { error: 'Authorization code expired' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the client ID matches
+    if (authCodeData.clientId !== body.clientId) {
+      return NextResponse.json(
+        { error: 'Authorization code client mismatch' },
+        { status: 400 }
+      )
+    }
+
+    // Check if user has granted permissions to this client
+    const { data: permission, error: permError } = await supabase
+      .from('user_cli_permissions')
+      .select('*')
+      .eq('user_id', authCodeData.userId)
+      .eq('client_id', body.clientId)
+      .eq('granted', true)
+      .single()
+
+    if (permError || !permission) {
+      console.error('No permission found:', permError)
+      return NextResponse.json(
+        { error: 'Access not granted by user' },
+        { status: 403 }
+      )
+    }
+
+    // Generate access token (in production, use proper JWT)
+    const accessToken = Buffer.from(`${authCodeData.userId}:${body.clientId}:${now}:${Math.random()}`).toString('base64')
     const expiresIn = 3600 // 1 hour
     const tokenType = 'Bearer'
 
     // Log the token request
     await supabase.rpc('log_cli_access', {
-      p_user_id: null, // We don't have user context yet
+      p_user_id: authCodeData.userId,
       p_client_id: body.clientId,
       p_action: 'token_request',
       p_resource: 'access_token',
