@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
-interface APIKeyValidationResult {
+export interface APIKeyValidationResult {
   isValid: boolean
   keyId?: string
   keyName?: string
@@ -118,6 +118,7 @@ export async function logAPIUsage(
 
 export function withAPIKeyAuth(handler: (request: NextRequest, keyInfo: APIKeyValidationResult) => Promise<NextResponse>) {
   return async (request: NextRequest): Promise<NextResponse> => {
+    console.log('🔧 Middleware called for:', request.url)
     const startTime = Date.now()
     
     try {
