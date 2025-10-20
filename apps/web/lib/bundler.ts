@@ -644,6 +644,273 @@ Please:
   }
 
   /**
+   * Create a comprehensive bundle for all user data
+   */
+  async createUserDataBundle(
+    userId: string, 
+    options: {
+      includeEmbeddings?: boolean
+      includeMetadata?: boolean
+      format?: 'zip' | 'json' | 'csv'
+    } = {}
+  ): Promise<{ bundleId: string; downloadUrl: string }> {
+    try {
+      console.log(`📦 Creating user data bundle for user: ${userId}`)
+
+      // Step 1: Fetch all user's projects
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('owner', userId)
+        .order('created_at', { ascending: false })
+
+      if (projectsError) {
+        throw new Error(`Failed to fetch projects: ${projectsError.message}`)
+      }
+
+      if (!projects || projects.length === 0) {
+        throw new Error('No projects found for this user')
+      }
+
+      // Step 2: Fetch all user's crawls
+      const { data: crawls, error: crawlsError } = await supabase
+        .from('crawls')
+        .select(`
+          *,
+          projects!inner(id, name, owner)
+        `)
+        .eq('projects.owner', userId)
+        .order('created_at', { ascending: false })
+
+      if (crawlsError) {
+        throw new Error(`Failed to fetch crawls: ${crawlsError.message}`)
+      }
+
+      // Step 3: Fetch all user's pages
+      const { data: pages, error: pagesError } = await supabase
+        .from('pages')
+        .select(`
+          *,
+          crawls!inner(project_id, projects!inner(owner))
+        `)
+        .eq('crawls.projects.owner', userId)
+
+      if (pagesError) {
+        throw new Error(`Failed to fetch pages: ${pagesError.message}`)
+      }
+
+      // Step 4: Fetch all user's chunks
+      const { data: chunks, error: chunksError } = await supabase
+        .from('chunks')
+        .select(`
+          *,
+          pages!inner(
+            url,
+            title,
+            crawl_id,
+            crawls!inner(project_id, projects!inner(owner))
+          )
+        `)
+        .eq('pages.crawls.projects.owner', userId)
+
+      if (chunksError) {
+        throw new Error(`Failed to fetch chunks: ${chunksError.message}`)
+      }
+
+      console.log(`📊 User data bundle: ${projects.length} projects, ${crawls?.length || 0} crawls, ${pages?.length || 0} pages, ${chunks?.length || 0} chunks`)
+
+      // Step 5: Create comprehensive manifest
+      const manifest: BundleManifest = {
+        version: '1.0.0',
+        created_at: new Date().toISOString(),
+        project_id: 'user-data',
+        project_name: 'Complete User Data Export',
+        total_pages: pages?.length || 0,
+        total_chunks: chunks?.length || 0,
+        total_crawls: crawls?.length || 0,
+        scope: 'user-data',
+        description: `Complete data export for user ${userId} including all projects, crawls, pages, and content chunks`
+      }
+
+      // Step 6: Prepare comprehensive data
+      const pagesData: PageData[] = (pages || []).map(page => ({
+        id: page.id,
+        url: page.url,
+        title: page.title || 'Untitled',
+        status_code: page.status_code,
+        content_type: page.content_type,
+        depth: page.depth,
+        crawled_at: page.crawled_at,
+        crawl_id: page.crawl_id,
+        project_id: page.crawls?.project_id || '',
+        project_name: projects.find(p => p.id === page.crawls?.project_id)?.name || 'Unknown',
+        links: page.links || [],
+        raw_html_path: page.raw_html_path,
+        markdown_path: page.markdown_path
+      }))
+
+      const chunksData: ChunkData[] = (chunks || []).map(chunk => ({
+        id: chunk.id,
+        page_id: chunk.page_id,
+        content: chunk.content,
+        token_count: chunk.token_count,
+        chunk_index: chunk.chunk_index,
+        page_url: chunk.pages?.url || '',
+        page_title: chunk.pages?.title || 'Untitled',
+        crawl_id: chunk.pages?.crawl_id || '',
+        project_id: chunk.pages?.crawls?.project_id || '',
+        created_at: chunk.created_at
+      }))
+
+      // Step 7: Create comprehensive graph data
+      const graphData = this.createGraphData(pagesData, crawls || [])
+
+      // Step 8: Create bundle ID and filename
+      const bundleId = `user-data-${userId}-${Date.now()}`
+      const filename = `user-data-export-${Date.now()}.zip`
+
+      // Step 9: Create zip file
+      const zipBuffer = await this.createUserDataZipFile(
+        manifest, 
+        projects, 
+        crawls || [], 
+        pagesData, 
+        chunksData, 
+        graphData,
+        options
+      )
+
+      // Step 10: Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('bundles')
+        .upload(filename, zipBuffer, {
+          contentType: 'application/zip',
+          upsert: false
+        })
+
+      if (uploadError) {
+        throw new Error(`Failed to upload bundle: ${uploadError.message}`)
+      }
+
+      // Step 11: Get public URL
+      const { data: urlData } = supabase.storage
+        .from('bundles')
+        .getPublicUrl(filename)
+
+      console.log(`✅ User data bundle created successfully: ${filename}`)
+
+      return {
+        bundleId,
+        downloadUrl: urlData.publicUrl
+      }
+
+    } catch (error) {
+      console.error('❌ User data bundle creation failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Create comprehensive zip file for user data
+   */
+  private async createUserDataZipFile(
+    manifest: BundleManifest,
+    projects: any[],
+    crawls: any[],
+    pages: PageData[],
+    chunks: ChunkData[],
+    graph: GraphData,
+    options: {
+      includeEmbeddings?: boolean
+      includeMetadata?: boolean
+      format?: 'zip' | 'json' | 'csv'
+    }
+  ): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = []
+      const archive = archiver('zip', { zlib: { level: 9 } })
+
+      archive.on('data', (chunk) => chunks.push(chunk))
+      archive.on('end', () => resolve(Buffer.concat(chunks)))
+      archive.on('error', reject)
+
+      // Add manifest.json
+      archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest.json' })
+
+      // Add projects.json
+      archive.append(JSON.stringify(projects, null, 2), { name: 'projects.json' })
+
+      // Add crawls.json
+      archive.append(JSON.stringify(crawls, null, 2), { name: 'crawls.json' })
+
+      // Add pages data
+      if (pages.length > 0) {
+        if (options.format === 'csv') {
+          const csvContent = this.createCSVContent(pages)
+          archive.append(csvContent, { name: 'pages.csv' })
+        } else {
+          archive.append(JSON.stringify(pages, null, 2), { name: 'pages.json' })
+        }
+      }
+
+      // Add chunks data
+      if (chunks.length > 0) {
+        if (options.format === 'csv') {
+          const csvContent = this.createChunksCSVContent(chunks)
+          archive.append(csvContent, { name: 'chunks.csv' })
+        } else {
+          const jsonlContent = chunks.map(chunk => JSON.stringify(chunk)).join('\n')
+          archive.append(jsonlContent, { name: 'chunks.jsonl' })
+        }
+      }
+
+      // Add graph.json
+      archive.append(JSON.stringify(graph, null, 2), { name: 'graph.json' })
+
+      // Add summary statistics
+      const summary = {
+        total_projects: projects.length,
+        total_crawls: crawls.length,
+        total_pages: pages.length,
+        total_chunks: chunks.length,
+        total_tokens: chunks.reduce((sum, chunk) => sum + chunk.token_count, 0),
+        export_date: new Date().toISOString(),
+        user_id: manifest.project_id === 'user-data' ? 'user-data' : 'unknown'
+      }
+      archive.append(JSON.stringify(summary, null, 2), { name: 'summary.json' })
+
+      // Add prompt packs
+      this.addPromptPacks(archive)
+
+      archive.finalize()
+    })
+  }
+
+  /**
+   * Create CSV content for chunks
+   */
+  private createChunksCSVContent(data: ChunkData[]): string {
+    const headers = [
+      'id', 'page_id', 'content', 'token_count', 'chunk_index', 
+      'page_url', 'page_title', 'crawl_id', 'project_id', 'created_at'
+    ]
+    
+    const headerRow = headers.join(',')
+    const dataRows = data.map(row => 
+      headers.map(h => {
+        const value = row[h as keyof ChunkData]
+        // Escape CSV values
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+          return `"${value.replace(/"/g, '""')}"`
+        }
+        return value || ''
+      }).join(',')
+    )
+    
+    return [headerRow, ...dataRows].join('\n')
+  }
+
+  /**
    * Get latest bundle for a project
    */
   async getLatestBundle(projectId: string): Promise<{ bundleId: string; downloadUrl: string } | null> {

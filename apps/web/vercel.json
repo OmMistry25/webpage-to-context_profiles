@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/process-crawl",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "functions": {
+    "app/api/process-crawl/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}
