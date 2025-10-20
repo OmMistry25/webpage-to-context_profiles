@@ -81,14 +81,23 @@ async function handleCrawlSearch(request: NextRequest, keyInfo: APIKeyValidation
       )
     }
 
-    // Search through chunks using vector similarity
+    // Search through chunks using text search
     const { data: searchResults, error: searchError } = await supabase
-      .rpc('search_chunks', {
-        query_text: query,
-        match_threshold: 0.3,
-        match_count: limit,
-        crawl_id_filter: crawlId
-      })
+      .from('chunks')
+      .select(`
+        id,
+        content,
+        page_id,
+        pages!inner(
+          id,
+          url,
+          title,
+          crawl_id
+        )
+      `)
+      .eq('pages.crawl_id', crawlId)
+      .ilike('content', `%${query}%`)
+      .limit(limit)
 
     if (searchError) {
       console.error('Search error:', searchError)
@@ -98,34 +107,16 @@ async function handleCrawlSearch(request: NextRequest, keyInfo: APIKeyValidation
       )
     }
 
-    // Get additional page information for the results
-    const chunkIds = searchResults?.map((result: any) => result.id) || []
-    
-    let pagesData: any[] = []
-    if (chunkIds.length > 0) {
-      const { data: pages, error: pagesError } = await supabase
-        .from('pages')
-        .select('id, url, title, chunks(id, content, metadata)')
-        .in('id', searchResults?.map((result: any) => result.page_id) || [])
-      
-      if (!pagesError) {
-        pagesData = pages || []
-      }
-    }
-
-    // Combine search results with page data
+    // Process search results
     const enrichedResults = searchResults?.map((result: any) => {
-      const page = pagesData.find(p => p.id === result.page_id)
       return {
         id: result.id,
         content: result.content,
-        metadata: result.metadata,
-        similarity_score: result.similarity,
-        page: page ? {
-          id: page.id,
-          url: page.url,
-          title: page.title
-        } : null
+        page: {
+          id: result.pages.id,
+          url: result.pages.url,
+          title: result.pages.title
+        }
       }
     }) || []
 

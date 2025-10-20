@@ -1,9 +1,12 @@
 -- Migration: Add public API schema for API keys and usage tracking
 -- This enables companies to access the core functionality via API keys
 
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Create API keys table
 CREATE TABLE IF NOT EXISTS api_keys (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key_name text NOT NULL,
   key_hash text UNIQUE NOT NULL,
   key_prefix text NOT NULL, -- First 8 characters for identification
@@ -17,7 +20,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
 
 -- Create API usage tracking table
 CREATE TABLE IF NOT EXISTS api_usage (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   api_key_id uuid REFERENCES api_keys(id) ON DELETE CASCADE,
   endpoint text NOT NULL,
   method text NOT NULL,

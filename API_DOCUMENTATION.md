@@ -1,136 +1,81 @@
-# Web to Context API Documentation
+# Webpage-to-Context API Documentation
 
-The Web to Context API allows you to crawl websites and extract structured content for analysis, search, and export. This API is designed for developers and companies who want to integrate website content extraction into their applications.
+A comprehensive API for converting webpages into searchable context profiles with multi-depth crawling, content extraction, and intelligent search capabilities.
 
-## Base URL
+## Table of Contents
+
+- [Overview](#overview)
+- [Authentication](#authentication)
+- [API Endpoints](#api-endpoints)
+- [Error Handling](#error-handling)
+- [Rate Limits](#rate-limits)
+- [Code Examples](#code-examples)
+- [Deployment](#deployment)
+
+## Overview
+
+The Webpage-to-Context API allows you to:
+
+- **Crawl websites** with configurable depth and scope
+- **Extract content** and convert it to searchable chunks
+- **Search through content** with intelligent text matching
+- **Export data** in multiple formats (JSON, CSV, ZIP)
+- **Manage API keys** with granular permissions
+
+### Base URL
 
 ```
-http://localhost:3005/api/v1
+Production: https://your-domain.vercel.app/api/v1
+Development: http://localhost:3006/api/v1
 ```
 
 ## Authentication
 
-All API requests require authentication using an API key. Include your API key in the Authorization header:
+All API endpoints require authentication using API keys.
 
-```
-Authorization: Bearer YOUR_API_KEY
-```
+### Creating API Keys
 
-### Getting an API Key
+1. Log into the dashboard
+2. Navigate to the "API Keys" tab
+3. Click "Create API Key"
+4. Provide a name and description
+5. Copy the generated key (shown only once)
 
-1. Sign up for an account at the Web to Context web application
-2. Navigate to the API Keys section in your dashboard
-3. Create a new API key with a descriptive name
-4. Copy the API key (it's only shown once for security)
+### Using API Keys
 
-## Rate Limits
+Include your API key in the `Authorization` header:
 
-- 100 requests per minute per API key
-- 1000 requests per hour per API key
-- 10000 requests per day per API key
-
-Rate limit headers are included in responses:
-- `X-RateLimit-Limit`: Maximum requests allowed
-- `X-RateLimit-Remaining`: Requests remaining in current window
-- `X-RateLimit-Reset`: Time when the rate limit resets
-
-## Error Handling
-
-The API uses standard HTTP status codes and returns JSON error responses:
-
-```json
-{
-  "error": "Error description",
-  "code": "ERROR_CODE"
-}
+```bash
+Authorization: Bearer YOUR_API_KEY_HERE
 ```
 
-Common error codes:
-- `INVALID_API_KEY`: API key is invalid or expired
-- `RATE_LIMIT_EXCEEDED`: Rate limit exceeded
-- `INVALID_URL`: URL format is invalid
-- `CRAWL_NOT_FOUND`: Crawl ID not found or access denied
-- `CRAWL_NOT_COMPLETED`: Crawl is still in progress
+## API Endpoints
 
-## Endpoints
+### Crawl Management
 
-### Create API Key
+#### Create Crawl
 
-Create a new API key for your account.
+Start a new website crawl.
 
-**POST** `/api/v1/keys`
-
-**Request Body:**
-```json
-{
-  "name": "My Application API Key",
-  "description": "API key for my web scraping application",
-  "expiresInDays": 365
-}
+```http
+POST /api/v1/crawl
 ```
-
-**Response:**
-```json
-{
-  "success": true,
-  "apiKey": {
-    "id": "uuid",
-    "name": "My Application API Key",
-    "key": "your-api-key-here",
-    "prefix": "prefix123",
-    "description": "API key for my web scraping application",
-    "expiresAt": "2025-01-01T00:00:00Z",
-    "createdAt": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-### List API Keys
-
-Get all API keys for your account.
-
-**GET** `/api/v1/keys`
-
-**Response:**
-```json
-{
-  "success": true,
-  "apiKeys": [
-    {
-      "id": "uuid",
-      "name": "My Application API Key",
-      "prefix": "prefix123",
-      "description": "API key for my web scraping application",
-      "isActive": true,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "lastUsedAt": "2024-01-15T10:30:00Z",
-      "expiresAt": "2025-01-01T00:00:00Z"
-    }
-  ]
-}
-```
-
-### Start Crawl
-
-Start crawling a website to extract content.
-
-**POST** `/api/v1/crawl`
 
 **Request Body:**
 ```json
 {
   "url": "https://example.com",
-  "max_depth": 3,
+  "max_depth": 2,
   "max_pages": 50,
-  "scope": "domain"
+  "scope": "path"
 }
 ```
 
 **Parameters:**
-- `url` (required): The website URL to crawl
-- `max_depth` (optional): Maximum crawl depth (1-5, default: 3)
-- `max_pages` (optional): Maximum pages to crawl (1-200, default: 50)
-- `scope` (optional): Crawl scope - "domain", "subdomain", or "path" (default: "domain")
+- `url` (required): The starting URL to crawl
+- `max_depth` (optional): Maximum crawl depth (default: 2)
+- `max_pages` (optional): Maximum pages to crawl (default: 50)
+- `scope` (optional): Crawl scope - "path", "domain", or "subdomain" (default: "path")
 
 **Response:**
 ```json
@@ -139,20 +84,22 @@ Start crawling a website to extract content.
   "crawl": {
     "id": "crawl-uuid",
     "url": "https://example.com",
-    "scope": "domain",
-    "max_depth": 3,
+    "scope": "path",
+    "max_depth": 2,
     "max_pages": 50,
     "status": "pending",
-    "created_at": "2024-01-01T00:00:00Z"
+    "created_at": "2025-10-20T06:58:23.556767+00:00"
   }
 }
 ```
 
-### Get Crawl Status
+#### Get Crawl Status
 
-Check the status of a crawl operation.
+Check the status of a crawl.
 
-**GET** `/api/v1/crawl/{crawl_id}/status`
+```http
+GET /api/v1/crawl/{crawl_id}/status
+```
 
 **Response:**
 ```json
@@ -161,16 +108,16 @@ Check the status of a crawl operation.
   "crawl": {
     "id": "crawl-uuid",
     "url": "https://example.com",
-    "scope": "domain",
-    "max_depth": 3,
+    "scope": "path",
+    "max_depth": 2,
     "max_pages": 50,
     "status": "completed",
-    "created_at": "2024-01-01T00:00:00Z",
-    "completed_at": "2024-01-01T00:05:00Z",
+    "created_at": "2025-10-20T06:58:23.556767+00:00",
+    "completed_at": "2025-10-20T07:00:56.457+00:00",
     "error_message": null,
     "statistics": {
-      "total_pages": 45,
-      "completed_pages": 45,
+      "total_pages": 1,
+      "completed_pages": 1,
       "failed_pages": 0,
       "progress_percentage": 100
     }
@@ -184,39 +131,19 @@ Check the status of a crawl operation.
 - `completed`: Crawl finished successfully
 - `failed`: Crawl encountered an error
 
-### Export Crawl Data
+### Search
 
-Export the crawled data in various formats.
+#### Search Crawl Content
 
-**GET** `/api/v1/crawl/{crawl_id}/export?format=zip`
+Search through the content of a completed crawl.
 
-**Parameters:**
-- `format` (optional): Export format - "zip", "json", or "csv" (default: "zip")
-
-**Response:**
-```json
-{
-  "success": true,
-  "export": {
-    "bundle_id": "bundle-uuid",
-    "download_url": "https://storage.example.com/bundles/bundle-uuid.zip",
-    "format": "zip",
-    "crawl_id": "crawl-uuid",
-    "crawl_url": "https://example.com",
-    "created_at": "2024-01-01T00:10:00Z"
-  }
-}
+```http
+GET /api/v1/crawl/{crawl_id}/search?q={query}&limit={limit}&offset={offset}
 ```
 
-### Search Crawl Content
-
-Search through the crawled content using semantic search.
-
-**GET** `/api/v1/crawl/{crawl_id}/search?q=search+query&limit=10&offset=0`
-
-**Parameters:**
+**Query Parameters:**
 - `q` (required): Search query
-- `limit` (optional): Maximum results to return (1-100, default: 10)
+- `limit` (optional): Maximum results to return (default: 10, max: 100)
 - `offset` (optional): Number of results to skip (default: 0)
 
 **Response:**
@@ -224,23 +151,18 @@ Search through the crawled content using semantic search.
 {
   "success": true,
   "search": {
-    "query": "search query",
+    "query": "example",
     "crawl_id": "crawl-uuid",
     "crawl_url": "https://example.com",
-    "total_results": 25,
+    "total_results": 1,
     "results": [
       {
         "id": "chunk-uuid",
-        "content": "Relevant content text...",
-        "metadata": {
-          "title": "Page Title",
-          "description": "Page description"
-        },
-        "similarity_score": 0.85,
+        "content": "Example Domain This domain is for use in documentation examples...",
         "page": {
           "id": "page-uuid",
-          "url": "https://example.com/page",
-          "title": "Page Title"
+          "url": "https://example.com",
+          "title": "Example Domain"
         }
       }
     ]
@@ -248,239 +170,295 @@ Search through the crawled content using semantic search.
 }
 ```
 
+### Export
+
+#### Export Crawl Data
+
+Export crawl data in various formats.
+
+```http
+GET /api/v1/crawl/{crawl_id}/export?format={format}
+```
+
+**Query Parameters:**
+- `format` (optional): Export format - "json", "csv", or "zip" (default: "zip")
+
+**Response:**
+- **ZIP format**: Binary file download
+- **JSON format**: JSON response with all data
+- **CSV format**: CSV file download
+
+### API Key Management
+
+#### List API Keys
+
+Get all API keys for the authenticated user.
+
+```http
+GET /api/v1/keys
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "keys": [
+    {
+      "id": "key-uuid",
+      "name": "My API Key",
+      "prefix": "w2c_",
+      "description": "Key for production use",
+      "is_active": true,
+      "created_at": "2025-10-20T06:00:00.000Z",
+      "last_used_at": "2025-10-20T07:00:00.000Z",
+      "expires_at": null
+    }
+  ]
+}
+```
+
+#### Create API Key
+
+Create a new API key.
+
+```http
+POST /api/v1/keys
+```
+
+**Request Body:**
+```json
+{
+  "name": "My API Key",
+  "description": "Key for production use",
+  "expiresInDays": 365
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "apiKey": {
+    "id": "key-uuid",
+    "name": "My API Key",
+    "key": "w2c_abc123...",
+    "prefix": "w2c_",
+    "description": "Key for production use",
+    "expiresAt": "2026-10-20T06:00:00.000Z",
+    "createdAt": "2025-10-20T06:00:00.000Z"
+  }
+}
+```
+
+## Error Handling
+
+The API uses standard HTTP status codes and returns error details in JSON format.
+
+### Error Response Format
+
+```json
+{
+  "error": "Error message",
+  "details": "Additional error details",
+  "code": "ERROR_CODE"
+}
+```
+
+### Common Error Codes
+
+- `400 Bad Request`: Invalid request parameters
+- `401 Unauthorized`: Invalid or missing API key
+- `403 Forbidden`: Insufficient permissions
+- `404 Not Found`: Resource not found
+- `429 Too Many Requests`: Rate limit exceeded
+- `500 Internal Server Error`: Server error
+
+### Example Error Responses
+
+**Invalid API Key:**
+```json
+{
+  "error": "Invalid or expired API key"
+}
+```
+
+**Crawl Not Found:**
+```json
+{
+  "error": "Crawl not found or access denied"
+}
+```
+
+**Rate Limit Exceeded:**
+```json
+{
+  "error": "Rate limit exceeded",
+  "details": "Too many requests. Try again in 60 seconds."
+}
+```
+
+## Rate Limits
+
+- **API Calls**: 1000 requests per hour per API key
+- **Crawl Creation**: 10 crawls per hour per API key
+- **Search Requests**: 500 requests per hour per API key
+
+Rate limit headers are included in responses:
+- `X-RateLimit-Limit`: Maximum requests allowed
+- `X-RateLimit-Remaining`: Requests remaining in current window
+- `X-RateLimit-Reset`: Time when the rate limit resets
+
 ## Code Examples
 
-### cURL Examples
+### cURL
 
-**Start a crawl:**
+**Create a Crawl:**
 ```bash
-curl -X POST "http://localhost:3005/api/v1/crawl" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+curl -X POST https://your-domain.vercel.app/api/v1/crawl \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
     "url": "https://example.com",
-    "max_depth": 3,
-    "max_pages": 50
+    "max_depth": 2,
+    "max_pages": 50,
+    "scope": "path"
   }'
 ```
 
-**Check crawl status:**
+**Search Content:**
 ```bash
-curl -X GET "http://localhost:3005/api/v1/crawl/CRAWL_ID/status" \
+curl -X GET "https://your-domain.vercel.app/api/v1/crawl/CRAWL_ID/search?q=example&limit=5" \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-**Export crawl data:**
-```bash
-curl -X GET "http://localhost:3005/api/v1/crawl/CRAWL_ID/export?format=zip" \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-**Search crawl content:**
-```bash
-curl -X GET "http://localhost:3005/api/v1/crawl/CRAWL_ID/search?q=product+features&limit=5" \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-### Python Examples
+### Python
 
 ```python
 import requests
-import time
 
 # Configuration
-API_BASE_URL = "http://localhost:3005/api/v1"
+API_BASE_URL = "https://your-domain.vercel.app/api/v1"
 API_KEY = "YOUR_API_KEY"
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
     "Content-Type": "application/json"
 }
 
-def start_crawl(url, max_depth=3, max_pages=50):
-    """Start a crawl and return the crawl ID"""
+# Create a crawl
+def create_crawl(url, max_depth=2, max_pages=50, scope="path"):
     response = requests.post(
         f"{API_BASE_URL}/crawl",
         headers=HEADERS,
         json={
             "url": url,
             "max_depth": max_depth,
-            "max_pages": max_pages
+            "max_pages": max_pages,
+            "scope": scope
         }
     )
-    response.raise_for_status()
-    return response.json()["crawl"]["id"]
+    return response.json()
 
-def wait_for_completion(crawl_id, timeout=300):
-    """Wait for crawl to complete"""
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        response = requests.get(
-            f"{API_BASE_URL}/crawl/{crawl_id}/status",
-            headers=HEADERS
-        )
-        response.raise_for_status()
-        data = response.json()
-        status = data["crawl"]["status"]
-        
-        if status == "completed":
-            return data["crawl"]
-        elif status == "failed":
-            raise Exception(f"Crawl failed: {data['crawl']['error_message']}")
-        
-        time.sleep(5)  # Wait 5 seconds before checking again
-    
-    raise Exception("Crawl timeout")
-
-def export_crawl(crawl_id, format="zip"):
-    """Export crawl data"""
+# Check crawl status
+def get_crawl_status(crawl_id):
     response = requests.get(
-        f"{API_BASE_URL}/crawl/{crawl_id}/export",
-        headers=HEADERS,
-        params={"format": format}
+        f"{API_BASE_URL}/crawl/{crawl_id}/status",
+        headers=HEADERS
     )
-    response.raise_for_status()
-    return response.json()["export"]
+    return response.json()
 
+# Search content
 def search_crawl(crawl_id, query, limit=10):
-    """Search crawl content"""
     response = requests.get(
         f"{API_BASE_URL}/crawl/{crawl_id}/search",
         headers=HEADERS,
         params={"q": query, "limit": limit}
     )
-    response.raise_for_status()
-    return response.json()["search"]
+    return response.json()
 
 # Example usage
-if __name__ == "__main__":
-    # Start crawling a website
-    crawl_id = start_crawl("https://example.com")
-    print(f"Started crawl: {crawl_id}")
-    
-    # Wait for completion
-    crawl_data = wait_for_completion(crawl_id)
-    print(f"Crawl completed: {crawl_data['statistics']['total_pages']} pages")
-    
-    # Export the data
-    export_data = export_crawl(crawl_id)
-    print(f"Export ready: {export_data['download_url']}")
-    
-    # Search the content
-    search_results = search_crawl(crawl_id, "product features", limit=5)
-    print(f"Found {len(search_results['results'])} relevant results")
+crawl = create_crawl("https://example.com")
+print(f"Crawl created: {crawl['crawl']['id']}")
+
+# Wait for completion (in production, use polling)
+import time
+while True:
+    status = get_crawl_status(crawl['crawl']['id'])
+    if status['crawl']['status'] == 'completed':
+        break
+    time.sleep(5)
+
+# Search the content
+results = search_crawl(crawl['crawl']['id'], "example")
+print(f"Found {len(results['search']['results'])} results")
 ```
 
-### JavaScript Examples
+### JavaScript/Node.js
 
 ```javascript
-const API_BASE_URL = 'http://localhost:3005/api/v1';
-const API_KEY = 'YOUR_API_KEY';
+const axios = require('axios');
 
+// Configuration
+const API_BASE_URL = 'https://your-domain.vercel.app/api/v1';
+const API_KEY = 'YOUR_API_KEY';
 const headers = {
   'Authorization': `Bearer ${API_KEY}`,
   'Content-Type': 'application/json'
 };
 
-async function startCrawl(url, maxDepth = 3, maxPages = 50) {
-  const response = await fetch(`${API_BASE_URL}/crawl`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      url,
-      max_depth: maxDepth,
-      max_pages: maxPages
-    })
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  return data.crawl.id;
+// Create a crawl
+async function createCrawl(url, maxDepth = 2, maxPages = 50, scope = 'path') {
+  const response = await axios.post(`${API_BASE_URL}/crawl`, {
+    url,
+    max_depth: maxDepth,
+    max_pages: maxPages,
+    scope
+  }, { headers });
+  return response.data;
 }
 
-async function waitForCompletion(crawlId, timeout = 300000) {
-  const startTime = Date.now();
-  
-  while (Date.now() - startTime < timeout) {
-    const response = await fetch(`${API_BASE_URL}/crawl/${crawlId}/status`, {
-      headers
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const status = data.crawl.status;
-    
-    if (status === 'completed') {
-      return data.crawl;
-    } else if (status === 'failed') {
-      throw new Error(`Crawl failed: ${data.crawl.error_message}`);
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 5000));
-  }
-  
-  throw new Error('Crawl timeout');
+// Check crawl status
+async function getCrawlStatus(crawlId) {
+  const response = await axios.get(`${API_BASE_URL}/crawl/${crawlId}/status`, { headers });
+  return response.data;
 }
 
-async function exportCrawl(crawlId, format = 'zip') {
-  const response = await fetch(`${API_BASE_URL}/crawl/${crawlId}/export?format=${format}`, {
-    headers
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  return data.export;
-}
-
+// Search content
 async function searchCrawl(crawlId, query, limit = 10) {
-  const response = await fetch(`${API_BASE_URL}/crawl/${crawlId}/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
-    headers
+  const response = await axios.get(`${API_BASE_URL}/crawl/${crawlId}/search`, {
+    headers,
+    params: { q: query, limit }
   });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  return data.search;
+  return response.data;
 }
 
 // Example usage
 async function main() {
   try {
-    // Start crawling
-    const crawlId = await startCrawl('https://example.com');
-    console.log(`Started crawl: ${crawlId}`);
+    // Create crawl
+    const crawl = await createCrawl('https://example.com');
+    console.log(`Crawl created: ${crawl.crawl.id}`);
     
     // Wait for completion
-    const crawlData = await waitForCompletion(crawlId);
-    console.log(`Crawl completed: ${crawlData.statistics.total_pages} pages`);
+    let status;
+    do {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      status = await getCrawlStatus(crawl.crawl.id);
+      console.log(`Status: ${status.crawl.status}`);
+    } while (status.crawl.status !== 'completed');
     
-    // Export the data
-    const exportData = await exportCrawl(crawlId);
-    console.log(`Export ready: ${exportData.download_url}`);
-    
-    // Search the content
-    const searchResults = await searchCrawl(crawlId, 'product features', 5);
-    console.log(`Found ${searchResults.results.length} relevant results`);
+    // Search content
+    const results = await searchCrawl(crawl.crawl.id, 'example');
+    console.log(`Found ${results.search.results.length} results`);
     
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('Error:', error.response?.data || error.message);
   }
 }
 
 main();
 ```
 
-### Go Examples
+### Go
 
 ```go
 package main
@@ -496,159 +474,115 @@ import (
 
 type CrawlRequest struct {
     URL      string `json:"url"`
-    MaxDepth int    `json:"max_depth,omitempty"`
-    MaxPages int    `json:"max_pages,omitempty"`
-    Scope    string `json:"scope,omitempty"`
+    MaxDepth int    `json:"max_depth"`
+    MaxPages int    `json:"max_pages"`
+    Scope    string `json:"scope"`
 }
 
 type CrawlResponse struct {
     Success bool `json:"success"`
     Crawl   struct {
-        ID        string    `json:"id"`
-        URL       string    `json:"url"`
-        Status    string    `json:"status"`
-        CreatedAt time.Time `json:"created_at"`
+        ID        string `json:"id"`
+        URL       string `json:"url"`
+        Status    string `json:"status"`
+        CreatedAt string `json:"created_at"`
     } `json:"crawl"`
 }
 
-type StatusResponse struct {
-    Success bool `json:"success"`
-    Crawl   struct {
-        ID       string `json:"id"`
-        Status   string `json:"status"`
-        Statistics struct {
-            TotalPages     int `json:"total_pages"`
-            CompletedPages int `json:"completed_pages"`
-            ProgressPercentage int `json:"progress_percentage"`
-        } `json:"statistics"`
-    } `json:"crawl"`
-}
-
-type APIClient struct {
-    BaseURL string
-    APIKey  string
-    Client  *http.Client
-}
-
-func NewAPIClient(baseURL, apiKey string) *APIClient {
-    return &APIClient{
-        BaseURL: baseURL,
-        APIKey:  apiKey,
-        Client:  &http.Client{Timeout: 30 * time.Second},
+func createCrawl(apiKey, url string) (*CrawlResponse, error) {
+    reqBody := CrawlRequest{
+        URL:      url,
+        MaxDepth: 2,
+        MaxPages: 50,
+        Scope:    "path",
     }
-}
-
-func (c *APIClient) makeRequest(method, endpoint string, body interface{}) (*http.Response, error) {
-    var reqBody io.Reader
-    if body != nil {
-        jsonData, err := json.Marshal(body)
-        if err != nil {
-            return nil, err
-        }
-        reqBody = bytes.NewBuffer(jsonData)
-    }
-
-    req, err := http.NewRequest(method, c.BaseURL+endpoint, reqBody)
+    
+    jsonData, _ := json.Marshal(reqBody)
+    req, _ := http.NewRequest("POST", "https://your-domain.vercel.app/api/v1/crawl", bytes.NewBuffer(jsonData))
+    req.Header.Set("Authorization", "Bearer "+apiKey)
+    req.Header.Set("Content-Type", "application/json")
+    
+    client := &http.Client{}
+    resp, err := client.Do(req)
     if err != nil {
         return nil, err
     }
-
-    req.Header.Set("Authorization", "Bearer "+c.APIKey)
-    req.Header.Set("Content-Type", "application/json")
-
-    return c.Client.Do(req)
-}
-
-func (c *APIClient) StartCrawl(url string) (string, error) {
-    req := CrawlRequest{
-        URL:      url,
-        MaxDepth: 3,
-        MaxPages: 50,
-    }
-
-    resp, err := c.makeRequest("POST", "/crawl", req)
-    if err != nil {
-        return "", err
-    }
     defer resp.Body.Close()
-
-    if resp.StatusCode != http.StatusOK {
-        return "", fmt.Errorf("HTTP error: %d", resp.StatusCode)
-    }
-
-    var crawlResp CrawlResponse
-    if err := json.NewDecoder(resp.Body).Decode(&crawlResp); err != nil {
-        return "", err
-    }
-
-    return crawlResp.Crawl.ID, nil
-}
-
-func (c *APIClient) WaitForCompletion(crawlID string, timeout time.Duration) error {
-    start := time.Now()
-    ticker := time.NewTicker(5 * time.Second)
-    defer ticker.Stop()
-
-    for {
-        select {
-        case <-ticker.C:
-            if time.Since(start) > timeout {
-                return fmt.Errorf("timeout waiting for crawl completion")
-            }
-
-            resp, err := c.makeRequest("GET", "/crawl/"+crawlID+"/status", nil)
-            if err != nil {
-                continue
-            }
-            defer resp.Body.Close()
-
-            var statusResp StatusResponse
-            if err := json.NewDecoder(resp.Body).Decode(&statusResp); err != nil {
-                continue
-            }
-
-            switch statusResp.Crawl.Status {
-            case "completed":
-                return nil
-            case "failed":
-                return fmt.Errorf("crawl failed")
-            }
-        }
-    }
+    
+    body, _ := io.ReadAll(resp.Body)
+    var result CrawlResponse
+    json.Unmarshal(body, &result)
+    
+    return &result, nil
 }
 
 func main() {
-    client := NewAPIClient("http://localhost:3005/api/v1", "YOUR_API_KEY")
-
-    // Start crawl
-    crawlID, err := client.StartCrawl("https://example.com")
+    apiKey := "YOUR_API_KEY"
+    
+    crawl, err := createCrawl(apiKey, "https://example.com")
     if err != nil {
-        fmt.Printf("Error starting crawl: %v\n", err)
+        fmt.Printf("Error: %v\n", err)
         return
     }
-    fmt.Printf("Started crawl: %s\n", crawlID)
-
-    // Wait for completion
-    if err := client.WaitForCompletion(crawlID, 5*time.Minute); err != nil {
-        fmt.Printf("Error waiting for completion: %v\n", err)
-        return
-    }
-    fmt.Println("Crawl completed successfully")
+    
+    fmt.Printf("Crawl created: %s\n", crawl.Crawl.ID)
 }
 ```
 
-## Best Practices
+## Deployment
 
-1. **Handle Rate Limits**: Implement exponential backoff when you receive 429 status codes
-2. **Monitor Crawl Status**: Check crawl status periodically instead of making frequent requests
-3. **Use Appropriate Limits**: Set reasonable max_depth and max_pages based on your needs
-4. **Store API Keys Securely**: Never expose API keys in client-side code
-5. **Handle Errors Gracefully**: Implement proper error handling for network issues and API errors
-6. **Respect Robots.txt**: The crawler respects robots.txt by default, but be mindful of website policies
+### Production Deployment with Vercel
+
+1. **Install Vercel CLI:**
+```bash
+npm install -g vercel
+```
+
+2. **Deploy:**
+```bash
+cd apps/web
+vercel --prod
+```
+
+3. **Set Environment Variables:**
+```bash
+vercel env add NEXT_PUBLIC_SUPABASE_URL
+vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
+vercel env add SUPABASE_SERVICE_ROLE_KEY
+```
+
+4. **Configure Cron Jobs:**
+The `vercel.json` file automatically configures the crawler to run every 5 minutes.
+
+### Environment Variables
+
+Required environment variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key
+
+### Monitoring
+
+- **Vercel Dashboard**: Monitor function executions and performance
+- **Supabase Dashboard**: Monitor database usage and performance
+- **API Logs**: Check Vercel function logs for debugging
 
 ## Support
 
-For API support and questions:
-- Email: api-support@your-domain.com
-- Documentation: https://your-domain.com/docs
-- Status Page: https://status.your-domain.com
+For support and questions:
+
+- **Documentation**: This file and inline API documentation
+- **Issues**: Report bugs and feature requests via GitHub
+- **Email**: Contact support for enterprise inquiries
+
+## Changelog
+
+### Version 1.0.0 (2025-10-20)
+- Initial release
+- Multi-depth crawling
+- Content extraction and chunking
+- Search functionality
+- API key management
+- Export capabilities
+- Serverless deployment ready
